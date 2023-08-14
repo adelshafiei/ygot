@@ -22,11 +22,11 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/openconfig/gnmi/errlist"
-	"github.com/openconfig/ygot/internal/yreflect"
-	"github.com/openconfig/ygot/util"
+	gnmipb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/protobuf/proto"
 
-	gnmipb "github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/internal/yreflect"
+	"github.com/openconfig/ygot/util"
 )
 
 // schemaPathTogNMIPath takes an input schema path represented as a slice of
@@ -276,6 +276,27 @@ func findSetLeaves(s GoStruct, orderedMapAsLeaf bool, opts ...DiffOpt) (map[*pat
 			sp = [][]string{leastSpecificPath(sp)}
 		}
 
+		// Prepend module name if needed
+		if hasPrependModuleNames(opts) {
+			moduleTag, ok := ni.StructField.Tag.Lookup("module")
+			if !ok {
+				errs = util.AppendErr(errs, fmt.Errorf("field %s did not specify a module", ni.StructField.Name))
+			}
+
+			parentTag := ""
+			if ni.Parent != nil {
+				parentTag = ni.Parent.StructField.Tag.Get("module")
+			}
+
+			if moduleTag != parentTag {
+				for i := range sp {
+					for j := range sp[i] {
+						sp[i][j] = moduleTag + ":" + sp[i][j]
+					}
+				}
+			}
+		}
+
 		vp, err := nodeValuePath(ni, sp)
 		if err != nil {
 			errs = util.NewErrs(err)
@@ -386,15 +407,29 @@ func leastSpecificPath(paths [][]string) []string {
 
 // appendUpdate adds an update to the supplied gNMI Notification message corresponding
 // to the path and value supplied. path is the string version of the path in pathInfo.
-func appendUpdate(n *gnmipb.Notification, path string, pathInfo *pathInfo) error {
-	v, err := EncodeTypedValue(pathInfo.val, gnmipb.Encoding_PROTO)
-	if err != nil {
-		return fmt.Errorf("cannot represent field value %v as TypedValue for path %v: %v", pathInfo.val, path, err)
+func appendUpdate(n *gnmipb.Notification, path string, pathInfo *pathInfo, opts ...DiffOpt) error {
+	var (
+		v *gnmipb.TypedValue
+	)
+	if hasRFC7951Diff(opts) {
+		j, err := Marshal7951(pathInfo.val)
+		if err != nil {
+			return fmt.Errorf("cannot represent field value %v as IETF-JSON for path %v: %v", pathInfo.val, path, err)
+		}
+		v = &gnmipb.TypedValue{Value: &gnmipb.TypedValue_JsonIetfVal{JsonIetfVal: j}}
+	} else {
+		var err error
+		v, err = EncodeTypedValue(pathInfo.val, gnmipb.Encoding_PROTO)
+		if err != nil {
+			return fmt.Errorf("cannot represent field value %v as TypedValue for path %v: %v", pathInfo.val, path, err)
+		}
 	}
+
 	n.Update = append(n.Update, &gnmipb.Update{
 		Path: pathInfo.path,
 		Val:  v,
 	})
+
 	return nil
 }
 
@@ -412,6 +447,34 @@ type DiffOpt interface {
 type IgnoreAdditions struct{}
 
 func (*IgnoreAdditions) IsDiffOpt() {}
+
+type PrependModuleNames struct{}
+
+func (*PrependModuleNames) IsDiffOpt() {}
+
+func hasPrependModuleNames(opts []DiffOpt) bool {
+	for _, o := range opts {
+		switch o.(type) {
+		case *PrependModuleNames:
+			return true
+		}
+	}
+	return false
+}
+
+type RFC7951Diff struct{}
+
+func (*RFC7951Diff) IsDiffOpt() {}
+
+func hasRFC7951Diff(opts []DiffOpt) bool {
+	for _, o := range opts {
+		switch o.(type) {
+		case *RFC7951Diff:
+			return true
+		}
+	}
+	return false
+}
 
 // hasIgnoreAdditions returns the first IgnoreAdditions from an opts slice, or
 // nil if there isn't one.
@@ -652,7 +715,7 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 		} else {
 			// The contents of the value should indicate that value a has changed
 			// to value b.
-			if err := appendUpdate(n, path, modVal); err != nil {
+			if err := appendUpdate(n, path, modVal, opts...); err != nil {
 				return err
 			}
 		}
