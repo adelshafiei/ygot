@@ -303,6 +303,27 @@ func findSetLeaves(s GoStruct, orderedMapAsLeaf bool, opts ...DiffOpt) (map[*pat
 			return
 		}
 
+		// Prepend module name in the key if needed
+		if hasPrependModuleNames(opts) {
+			moduleTag, ok := ni.StructField.Tag.Lookup("module")
+			if !ok {
+				errs = util.AppendErr(errs, fmt.Errorf("field %s did not specify a module", ni.StructField.Name))
+			}
+
+			parentTag := ""
+			if ni.Parent != nil {
+				parentTag = ni.Parent.StructField.Tag.Get("module")
+			}
+
+			if moduleTag != parentTag {
+				for _, p := range vp.gNMIPaths {
+					for keyName, keyValue := range p.Elem[len(p.Elem)-1].Key {
+						p.Elem[len(p.Elem)-1].Key[keyName] = moduleTag + ":" + keyValue
+					}
+				}
+			}
+		}
+
 		// Avoid processing twice if there is duplicate path.
 		keys := make([]string, len(vp.gNMIPaths))
 		for i, paths := range vp.gNMIPaths {
