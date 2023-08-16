@@ -1,4 +1,4 @@
-module github.com/adelshafiei/ygot
+module github.com/openconfig/ygot
 
 go 1.18
 
@@ -11,7 +11,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/goyang v1.4.0
-	github.com/openconfig/ygot v0.29.9
+	github.com/openconfig/gribi v1.0.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
@@ -27,7 +27,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/openconfig/gribi v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
