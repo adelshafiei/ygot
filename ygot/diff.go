@@ -433,7 +433,7 @@ func appendUpdate(n *gnmipb.Notification, path string, pathInfo *pathInfo, opts 
 		v *gnmipb.TypedValue
 	)
 	if hasRFC7951Diff(opts) {
-		j, err := Marshal7951(pathInfo.val)
+		j, err := Marshal7951(pathInfo.val, &RFC7951JSONConfig{PrependModuleNameIdentityref: true})
 		if err != nil {
 			return fmt.Errorf("cannot represent field value %v as IETF-JSON for path %v: %v", pathInfo.val, path, err)
 		}
