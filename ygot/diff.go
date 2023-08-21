@@ -812,6 +812,17 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 		}
 	}
 
+	// remove the last elem if the key is removed.
+	for index, deletePath := range n.Delete {
+		if len(deletePath.Elem) >= 2 {
+			for k, _ := range deletePath.Elem[len(deletePath.Elem)-2].Key {
+				if deletePath.Elem[len(deletePath.Elem)-1].Name == k {
+					n.Delete[index].Elem = deletePath.Elem[:len(deletePath.Elem)-1]
+				}
+			}
+		}
+	}
+
 	if hasIgnoreAdditions(opts) == nil {
 		// Check that all paths that are in the modified struct have been examined, if
 		// not they are updates.
