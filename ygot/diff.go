@@ -694,6 +694,32 @@ func createAtomicNotif(atomicLeaves []*pathval, ts int64, subtreePfx *gnmiPath) 
 	return no, nil
 }
 
+// isImmediateDescendant checks whether path b is a descendant of path a.
+func isImmediateDescendant(a, b *gnmipb.Path) bool {
+	if len(a.Elem) != len(b.Elem) {
+		return false
+	}
+	if len(a.Elem) < 2 {
+		return false
+	}
+
+	// the two paths need to be equal except the last elem.
+	for i, elem := range a.Elem[:len(a.Elem)-1] {
+		if !reflect.DeepEqual(elem, b.Elem[i]) {
+			return false
+		}
+	}
+
+	// now we need to check if a is the removal of the key.
+	for k, _ := range a.Elem[len(a.Elem)-2].Key {
+		if a.Elem[len(a.Elem)-1].Name == k {
+			return true
+		}
+	}
+
+	return false
+}
+
 // diff produces a slice of notifications given two GoStructs.
 //
 // See documentation for Diff and DiffWithAtomic for more information.
@@ -758,9 +784,18 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 				}
 				origVal.path.Elem = origVal.path.Elem[:pathLen-1]
 			}
-			// This leaf was set in the original struct, but not in the modified
-			// struct, therefore it has been deleted.
-			n.Delete = append(n.Delete, origVal.path)
+			shouldAppend := true
+			for _, deletePath := range n.Delete {
+				if isImmediateDescendant(deletePath, origVal.path) {
+					shouldAppend = false
+					break
+				}
+			}
+			if shouldAppend {
+				// This leaf was set in the original struct, but not in the modified
+				// struct, therefore it has been deleted.
+				n.Delete = append(n.Delete, origVal.path)
+			}
 		}
 	}
 
