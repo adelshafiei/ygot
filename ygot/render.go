@@ -704,10 +704,10 @@ func keyMapAsStrings(keys map[string]any) (map[string]string, error) {
 // KeyValueAsString returns a string representation of the any supplied. If the
 // type provided cannot be represented as a string for use in a gNMI path, an error is
 // returned.
-func KeyValueAsString(v any) (string, error) {
+func KeyValueAsString(v any, opts ...DiffOpt) (string, error) {
 	kv := reflect.ValueOf(v)
 	if _, isEnum := v.(GoEnum); isEnum {
-		name, _, err := enumFieldToString(kv, true)
+		name, _, err := enumFieldToString(kv, hasPrependModuleNames(opts))
 		if err != nil {
 			return "", fmt.Errorf("cannot resolve enumerated type in key, got err: %v", err)
 		}

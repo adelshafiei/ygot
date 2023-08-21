@@ -497,6 +497,20 @@ func hasRFC7951Diff(opts []DiffOpt) bool {
 	return false
 }
 
+type DeleteLeastSpecific struct{}
+
+func (*DeleteLeastSpecific) IsDiffOpt() {}
+
+func hasDeleteLeastSpecific(opts []DiffOpt) bool {
+	for _, o := range opts {
+		switch o.(type) {
+		case *DeleteLeastSpecific:
+			return true
+		}
+	}
+	return false
+}
+
 // hasIgnoreAdditions returns the first IgnoreAdditions from an opts slice, or
 // nil if there isn't one.
 func hasIgnoreAdditions(opts []DiffOpt) *IgnoreAdditions {
@@ -785,24 +799,26 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 				origVal.path.Elem = origVal.path.Elem[:pathLen-1]
 			}
 			shouldAppend := true
-			for _, deletePath := range n.Delete {
-				if isImmediateDescendant(deletePath, origVal.path) {
-					shouldAppend = false
-					break
+			if hasDeleteLeastSpecific(opts) {
+				for _, deletePath := range n.Delete {
+					if isImmediateDescendant(deletePath, origVal.path) {
+						shouldAppend = false
+						break
+					}
 				}
-			}
-			newDelete := make([]*gnmipb.Path, 0)
-			modified := false
-			// also check if there is element in the list that we should remove.
-			for _, deletePath := range n.Delete {
-				if isImmediateDescendant(origVal.path, deletePath) {
-					modified = true
-					continue
+				newDelete := make([]*gnmipb.Path, 0)
+				modified := false
+				// also check if there is element in the list that we should remove.
+				for _, deletePath := range n.Delete {
+					if isImmediateDescendant(origVal.path, deletePath) {
+						modified = true
+						continue
+					}
+					newDelete = append(newDelete, deletePath)
 				}
-				newDelete = append(newDelete, deletePath)
-			}
-			if modified {
-				n.Delete = newDelete
+				if modified {
+					n.Delete = newDelete
+				}
 			}
 			if shouldAppend {
 				// This leaf was set in the original struct, but not in the modified
@@ -812,12 +828,14 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 		}
 	}
 
-	// remove the last elem if the key is removed.
-	for index, deletePath := range n.Delete {
-		if len(deletePath.Elem) >= 2 {
-			for k, _ := range deletePath.Elem[len(deletePath.Elem)-2].Key {
-				if deletePath.Elem[len(deletePath.Elem)-1].Name == k {
-					n.Delete[index].Elem = deletePath.Elem[:len(deletePath.Elem)-1]
+	if hasDeleteLeastSpecific(opts) {
+		// remove the last elem if the key is removed.
+		for index, deletePath := range n.Delete {
+			if len(deletePath.Elem) >= 2 {
+				for k, _ := range deletePath.Elem[len(deletePath.Elem)-2].Key {
+					if deletePath.Elem[len(deletePath.Elem)-1].Name == k {
+						n.Delete[index].Elem = deletePath.Elem[:len(deletePath.Elem)-1]
+					}
 				}
 			}
 		}
