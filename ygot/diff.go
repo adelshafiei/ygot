@@ -791,6 +791,19 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 					break
 				}
 			}
+			newDelete := make([]*gnmipb.Path, 0)
+			modified := false
+			// also check if there is element in the list that we should remove.
+			for _, deletePath := range n.Delete {
+				if isImmediateDescendant(origVal.path, deletePath) {
+					modified = true
+					continue
+				}
+				newDelete = append(newDelete, deletePath)
+			}
+			if modified {
+				n.Delete = newDelete
+			}
 			if shouldAppend {
 				// This leaf was set in the original struct, but not in the modified
 				// struct, therefore it has been deleted.
