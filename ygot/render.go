@@ -707,7 +707,7 @@ func keyMapAsStrings(keys map[string]any) (map[string]string, error) {
 func KeyValueAsString(v any, opts ...DiffOpt) (string, error) {
 	kv := reflect.ValueOf(v)
 	if _, isEnum := v.(GoEnum); isEnum {
-		name, _, err := enumFieldToString(kv, hasPrependModuleNames(opts))
+		name, _, err := enumFieldToString(kv, true) //hasPrependModuleNames(opts))
 		if err != nil {
 			return "", fmt.Errorf("cannot resolve enumerated type in key, got err: %v", err)
 		}
