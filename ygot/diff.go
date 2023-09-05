@@ -799,7 +799,7 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 				origVal.path.Elem = origVal.path.Elem[:pathLen-1]
 			}
 			shouldAppend := true
-			if hasDeleteLeastSpecific(opts) {
+			/*if hasDeleteLeastSpecific(opts) {
 				for _, deletePath := range n.Delete {
 					if isImmediateDescendant(deletePath, origVal.path) {
 						shouldAppend = false
@@ -819,7 +819,7 @@ func diff(original, modified GoStruct, withAtomic bool, opts ...DiffOpt) ([]*gnm
 				if modified {
 					n.Delete = newDelete
 				}
-			}
+			}*/
 			if shouldAppend {
 				// This leaf was set in the original struct, but not in the modified
 				// struct, therefore it has been deleted.
